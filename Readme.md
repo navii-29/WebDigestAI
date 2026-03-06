@@ -63,7 +63,7 @@ project/ │ ├── app.py ├── scraper.py ├── prompts.py │ ├�
 
 ## 1️⃣ Clone Repository
 
-git clone https://github.com/yourusername/ai-web-digest.git cd
+git clone https://github.com/yourusername/WebDigestAI.git cd
 ai-web-digest
 
 ------------------------------------------------------------------------
