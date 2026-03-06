@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Website Summarizer</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1 class="title">WebDigest AI</h1>
+
+<div class="card">
+
+<input id="username" type="text" placeholder="Username">
+
+<input id="password" type="password" placeholder="Password">
+
+<input id="url" type="text" placeholder="Enter website URL">
+
+<button onclick="generateSummary()">Generate Summary</button>
+
+</div>
+
+<div class="result-box">
+
+<h3>Summary</h3>
+
+<p id="result"></p>
+
+</div>
+
+</div>
+
+
+<script  src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+
+async function generateSummary(){
+
+const username = document.getElementById("username").value
+const password = document.getElementById("password").value
+const url = document.getElementById("url").value
+
+const response = await fetch("/summary",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+Username:username,
+Password:password,
+Url:url
+})
+})
+
+const data = await response.json()
+
+document.getElementById("result").innerHTML = marked.parse(data.Message)
+}
+
+</script>
+
+</body>
+</html>

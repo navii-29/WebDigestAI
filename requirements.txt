@@ -1,0 +1,9 @@
+pandas
+streamlit
+flask
+flask_restful
+pymongo
+dotenv
+BeautifulSoup4
+playwright
+Openai

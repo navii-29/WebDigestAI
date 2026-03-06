@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Account</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1 class="title">WebDigest AI</h1>
+
+<div class="card">
+
+<input id="username" type="text" placeholder="Username">
+
+<input id="password" type="password" placeholder="Password">
+
+<button onclick="register()">Sign Up</button>
+
+<button class="signin-btn" onclick="signin()">Sign In</button>
+
+<p id="message"></p>
+
+</div>
+
+</div>
+
+
+<script>
+
+async function register(){
+
+const username = document.getElementById("username").value
+const password = document.getElementById("password").value
+
+const response = await fetch("/register",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+Username:username,
+Password:password
+})
+})
+
+const data = await response.json()
+
+document.getElementById("message").innerText = data.Message
+
+if(data.Status_Code === 200){
+
+setTimeout(()=>{
+window.location.href="/summary_page"
+},1000)
+
+}
+
+}
+
+function signin(){
+
+const username = document.getElementById("username").value
+const password = document.getElementById("password").value
+
+if(username === "" || password === ""){
+
+document.getElementById("message").innerText = "Enter username and password"
+return
+}
+
+window.location.href="/summary_page"
+
+}
+
+</script>
+
+</body>
+</html>
