@@ -171,41 +171,43 @@ class Register(Resource):
             return jsonify(generate_message(301,f"{mssg}+password should match the rules"))
 
 class Summary(Resource):
-
     def post(self):
-            posted_data = request.get_json()
-        
+        posted_data = request.get_json()
 
-            username = posted_data["Username"]
-            password = posted_data["Password"]
-            url = posted_data["Url"]
-            retJson, error = verifyCredentials(username, password)
-            if error:
-                return jsonify(retJson)
-            
+        username = posted_data["Username"]
+        password = posted_data["Password"]
+        url = posted_data["Url"]
 
-             # check tokens
-            if countTokens(username) == 0:
-                return generate_message(303, "Not enough tokens! please refill")
+        retJson, error = verifyCredentials(username, password)
+        if error:
+            return jsonify(retJson)
 
-            if not url:
-                return generate_message(400, 'Url not provided')
+        if not url:
+            return jsonify(generate_message(400, "URL not provided"))
 
-            try:
-             
+        # ✅ Get token count once
+        token_left = countTokens(username)
 
-                token_left = countTokens(username)
-                users.update_one(
-                {"Username": username},
-                {"$set": {"Token": token_left - 1}})
-                result = display_summary(url)
+        # ✅ Fix negatives + block at 0
+        if token_left <= 0:
+            users.update_one({"Username": username}, {"$set": {"Token": 0}})
+            return jsonify(generate_message(303, "Not enough tokens! Please refill"))
 
-                return jsonify(generate_message(200,f'Successfully generated website summary {result}'))
+        # ✅ Atomic decrement — only decrements if Token is still > 0
+        users.update_one(
+            {"Username": username, "Token": {"$gt": 0}},
+            {"$inc": {"Token": -1}}
+        )
 
-            except:
-                return generate_message(400, "Invalid website URL")
+        try:
+            result = display_summary(url)
+            return jsonify(generate_message(200, result))
 
-                
+        except Exception as e:
+            # ✅ Refund the token if summarization fails
+            users.update_one({"Username": username}, {"$inc": {"Token": 1}})
+            print("Summary error:", e)
+            return jsonify(generate_message(400, "Invalid website URL"))                
 
 
             
@@ -223,20 +225,54 @@ class Refill(Resource):
         password = posted_data["Admin_Password"]
         amount = posted_data["amount"]
 
-        admin_pw = "123abc"
+        load_dotenv
+        admin_pw = os.getenv("ADMIN_PASSWORD")
 
         if not existUser(username):
-            return generate_message(301, 'Invalid Username')
+            return jsonify(generate_message(301, 'Invalid Username'))
 
         if password != admin_pw:
-            return generate_message(302, 'Incorrect admin password')
+            return jsonify(generate_message(302, 'Incorrect admin password'))
 
         users.update_one(
-            {"Username": username},
-            {"$set": {"Token": amount}}
+         {"Username": username},
+    {"$set": {"Token": amount}}
         )
+        return jsonify(generate_message(200, 'Refilled'))
 
-        return generate_message(200, 'Refilled')
+
+    
+
+
+
+
+class Signin(Resource):
+    def post(self):
+        posted_data = request.get_json()
+
+        username = posted_data["Username"]
+        password = posted_data["Password"]
+
+        retJson, error = verifyCredentials(username, password)
+        if error:
+            return jsonify(retJson)
+
+        return jsonify(generate_message(200, "Sign in successful!"))
+    
+
+
+class Tokens(Resource):
+    def post(self):
+        posted_data = request.get_json()
+        username = posted_data["Username"]
+        password = posted_data["Password"]
+
+        retJson, error = verifyCredentials(username, password)
+        if error:
+            return jsonify(retJson)
+
+        return jsonify(generate_message(200, countTokens(username)))
+
 
 
             
@@ -257,9 +293,12 @@ def summary_page():
 api.add_resource(Register,'/register')
 api.add_resource(Summary,'/summary')
 api.add_resource(Refill,'/refill')
+api.add_resource(Signin, '/signin')
+api.add_resource(Tokens, '/tokens')
+
 
 if __name__ == '__main__':
-    app.run(debug= True,host='0.0.0.0', port = 5010)
+    app.run(debug= True,host='0.0.0.0', port = 5011)
 
     
 

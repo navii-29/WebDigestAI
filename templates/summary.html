@@ -3,63 +3,216 @@
 <head>
 <title>Website Summarizer</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+    .loader {
+        display: none;
+        width: 40px;
+        height: 40px;
+        border: 4px solid #ffffff30;
+        border-top: 4px solid #7c6ff7;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 16px auto;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+</style>
 </head>
-
 <body>
-
 <div class="container">
 
 <h1 class="title">WebDigest AI</h1>
 
+<!-- Summary Card -->
 <div class="card">
-
-<input id="username" type="text" placeholder="Username">
-
-<input id="password" type="password" placeholder="Password">
-
-<input id="url" type="text" placeholder="Enter website URL">
-
-<button onclick="generateSummary()">Generate Summary</button>
-
+    <input id="username" type="text" placeholder="Username" onblur="checkTokens()">
+    <input id="password" type="password" placeholder="Password" onblur="checkTokens()">
+    <input id="url" type="text" placeholder="Enter website URL">
+    <p id="token-count"></p>
+    <button id="summary-btn" onclick="generateSummary()">Generate Summary</button>
 </div>
 
+<!-- Result Box -->
 <div class="result-box">
+    <h3>Summary</h3>
+    <div class="loader" id="loader"></div>
+    <div id="result"></div>
+</div>
 
-<h3>Summary</h3>
-
-<p id="result"></p>
-
+<!-- Refill Card — hidden by default, shows when tokens hit 0 -->
+<div class="card" id="refill-card" style="display:none;">
+    <h3>🪙 Out of Tokens!</h3>
+    <p style="color:#aaa; font-size:0.9rem; margin-bottom:12px;">You've used all your tokens. Enter admin credentials below to refill.</p>
+    <input id="refill-username" type="text" placeholder="Username to refill">
+    <input id="admin-password" type="password" placeholder="Admin Password">
+    <input id="refill-amount" type="number" placeholder="Token amount" min="1">
+    <button onclick="refillTokens()">Refill Tokens</button>
+    <p id="refill-message"></p>
 </div>
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
 
-<script  src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+function setLoading(isLoading){
+    const loader = document.getElementById("loader")
+    const btn = document.getElementById("summary-btn")
+    const result = document.getElementById("result")
 
-async function generateSummary(){
-
-const username = document.getElementById("username").value
-const password = document.getElementById("password").value
-const url = document.getElementById("url").value
-
-const response = await fetch("/summary",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-Username:username,
-Password:password,
-Url:url
-})
-})
-
-const data = await response.json()
-
-document.getElementById("result").innerHTML = marked.parse(data.Message)
+    if(isLoading){
+        loader.style.display = "block"
+        result.innerHTML = ""
+        btn.disabled = true
+        btn.innerText = "Generating..."
+        btn.style.opacity = "0.5"
+        btn.style.cursor = "not-allowed"
+    } else {
+        loader.style.display = "none"
+        btn.disabled = false
+        btn.innerText = "Generate Summary"
+        btn.style.opacity = "1"
+        btn.style.cursor = "pointer"
+    }
 }
 
-</script>
+async function checkTokens(){
+    const username = document.getElementById("username").value
+    const password = document.getElementById("password").value
 
+    if(!username || !password) return
+
+    try{
+        const response = await fetch("/tokens", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ Username: username, Password: password })
+        })
+
+        const data = await response.json()
+
+        if(data.Status_Code === 200){
+            const tokens = data.Message
+            document.getElementById("token-count").innerText = `Tokens remaining: ${tokens}`
+
+            const btn = document.getElementById("summary-btn")
+            const refillCard = document.getElementById("refill-card")
+
+            if(tokens <= 0){
+                // disable summary button
+                btn.disabled = true
+                btn.innerText = "No Tokens Left"
+                btn.style.opacity = "0.5"
+                btn.style.cursor = "not-allowed"
+
+                // show refill card with animation
+                refillCard.style.display = "block"
+                refillCard.style.animation = "fadeIn 0.4s ease"
+
+                // pre-fill username for convenience
+                document.getElementById("refill-username").value = username
+
+            } else {
+                // re-enable summary button
+                btn.disabled = false
+                btn.innerText = "Generate Summary"
+                btn.style.opacity = "1"
+                btn.style.cursor = "pointer"
+
+                // hide refill card
+                refillCard.style.display = "none"
+            }
+        }
+    } catch(error){
+        console.log("Token check failed", error)
+    }
+}
+
+async function generateSummary(){
+    const username = document.getElementById("username").value
+    const password = document.getElementById("password").value
+    const url = document.getElementById("url").value
+
+    if(!username || !password || !url){
+        document.getElementById("result").innerText = "Please fill all fields"
+        return
+    }
+
+    setLoading(true)
+
+    try{
+        const response = await fetch("/summary",{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({ Username:username, Password:password, Url:url })
+        })
+
+        const data = await response.json()
+
+        if(data.Status_Code !== 200){
+            document.getElementById("result").innerText = data.Message
+            return
+        }
+
+        document.getElementById("result").innerHTML = marked.parse(data.Message)
+        await checkTokens()
+
+    }catch(error){
+        document.getElementById("result").innerText = "Server error"
+    } finally {
+        setLoading(false)
+    }
+}
+
+async function refillTokens(){
+    const username = document.getElementById("refill-username").value
+    const adminPassword = document.getElementById("admin-password").value
+    const amount = document.getElementById("refill-amount").value
+
+    if(!username || !adminPassword || !amount){
+        document.getElementById("refill-message").innerText = "Please fill all fields"
+        return
+    }
+
+    try{
+        const response = await fetch("/refill",{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({
+                Username: username,
+                Admin_Password: adminPassword,
+                amount: parseInt(amount)
+            })
+        })
+
+        const data = await response.json()
+        document.getElementById("refill-message").innerText = data.Message
+
+        if(data.Status_Code === 200){
+            // re-check tokens — refill card auto-hides if successful
+            await checkTokens()
+        }
+
+    }catch(error){
+        document.getElementById("refill-message").innerText = "Server error"
+    }
+}
+
+// auto-check tokens on page load
+window.addEventListener("load", () => {
+    const username = document.getElementById("username").value
+    const password = document.getElementById("password").value
+    if(username && password) checkTokens()
+})
+
+</script>
 </body>
 </html>

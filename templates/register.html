@@ -59,20 +59,39 @@ window.location.href="/summary_page"
 }
 
 }
+async function signin() {
+    const username = document.getElementById("username").value
+    const password = document.getElementById("password").value
 
-function signin(){
+    if (username === "" || password === "") {
+        document.getElementById("message").innerText = "Enter username and password"
+        return
+    }
 
-const username = document.getElementById("username").value
-const password = document.getElementById("password").value
+    try {
+        const response = await fetch("/signin", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                Username: username,
+                Password: password
+            })
+        })
 
-if(username === "" || password === ""){
+        const data = await response.json()
+        document.getElementById("message").innerText = data.Message
 
-document.getElementById("message").innerText = "Enter username and password"
-return
-}
+        if (data.Status_Code === 200) {
+            setTimeout(() => {
+                window.location.href = "/summary_page"
+            }, 1000)
+        }
 
-window.location.href="/summary_page"
-
+    } catch (error) {
+        document.getElementById("message").innerText = "Server error"
+    }
 }
 
 </script>
